@@ -176,3 +176,134 @@ $$\pi_{k+1} = \arg \max_{\pi} (r_\pi + \gamma P_\pi v_{\pi_k})$$
 <div  align="center">    
 	<img src="https://s2.loli.net/2025/06/16/LRO4DBZkrnCj8Xc.png"  width="100%" />
 </div>   
+
+# Monte Carlo Methods
+
+上一章的方法是基于 system model 来得到最优策略，我们希望使用 model-free 的方法来得到最优策略。方法就是利用与环境交互得到的数据来代替 system model。
+
+## MC Basic: The simplest MC-based algorithm
+
+首先回顾 policy iteration，第一步 policy evaluation 计算每个状态的状态价值，第二步 policy improvement 利用状态价值计算动作价值，根据动作价值决定策略。对于动作价值的计算
+
+$$q_{\pi_k}(s,a) = \sum_rp(r\vert s, a)r + \gamma\sum_{s^\prime}p(s^\prime \vert s, a)v_{\pi_k}(s^\prime)$$
+
+需要知道 system model $\{p(r\vert s, a), p(s^\prime \vert s, a)\}$
+
+如果使用 model-free 的方法，可以通过定义计算
+
+$$q_{\pi_k}(s, a) = \mathbb{E}[G_t \vert S_t = s, A_t = a]$$
+
+对于期望的计算，可以用蒙特卡洛方法，获得 n 个 episodes，然后用平均值来近似期望。
+
+<div  align="center">    
+	<img src="https://s2.loli.net/2025/06/19/C9s6K42VecTfgd1.png"  width="100%" />
+</div>   
+
+MC Basic 算法与 policy iteration 很相似，避免了 policy evaluation 中状态价值的计算，直接计算动作价值用于 policy improvement。
+
+## MC Exploring Starts
+
+MC Basic 算法非常简单，但其效率不高。对于一个采样得到的 episode
+
+$$s_1 \xrightarrow{a_2} s_2 \xrightarrow{a_4} s_1 \xrightarrow{a_2} s_2 \xrightarrow{a_3} s_5 \xrightarrow{a_1} \cdots$$
+
+完整的一个 episode 仅仅是为了近似初始状态的状态-动作对 $(s_1, a_2)$ 的动作价值，称为 initial visit，这样子效率是非常低的，因为后续也访问了许多其他的状态-动作对，我们也可以为其近似动作价值
+
+<div  align="center">    
+	<img src="https://s2.loli.net/2025/06/19/cP49nBvOfNesYlJ.png"  width="80%" />
+</div>   
+
+具体来说，可以将一个 episode 拆分为多个 subepisode，每个 subepisode 都可以为对应的状态-动作对近似动作价值。
+
+一个状态-动作对可能在 episode 中重复出现 (如 $(s_1, a_2)$)，如果仅仅计算其第一次出现的动作价值，称为 first-visit，如果记录每个状态-动作对，称为 every-visit。"If the rest of the episode is used to estimate the action value of a state-action pair every time it is visited, such a strategy is called every-visit. If we only count the first time a state-action pair is visited in the  episode, such a strategy is called first-visit."
+
+<div  align="center">    
+	<img src="https://s2.loli.net/2025/06/19/xiOtnHo6P4rZcj5.png"  width="100%" />
+</div>   
+
+这里采用了 every-visit 的策略，得到一个 (sub)episode 的中的一个状态价值后就更新策略。这样的方法需要保证 episode 涵盖尽可能多的状态-动作对，这样才能正确地近似动作价值。
+
+## MC $\epsilon$ -Greedy: Learning without exploring starts
+
+MC Exploring Starts 算法需要满足每个状态-动作对都能被访问到一定次数，可以通过随机性来做到。
+
+<div  align="center">    
+	<img src="https://s2.loli.net/2025/06/19/LOB4zF3aW2vcC7w.png"  width="60%" />
+</div>   
+
+<div  align="center">    
+	<img src="https://s2.loli.net/2025/06/19/1PCxvy3VXSJYfk2.png"  width="100%" />
+</div>  
+
+# Ch7 Temporal-Difference Methods
+
+TD 算法表达式如下，目标是为策略 $\pi$ 估计所有状态的状态价值 $v_{\pi}(s)$
+
+<div  align="center">    
+	<img src="https://s2.loli.net/2025/06/23/xPfMymlzIEa9u5q.png"  width="65%" />
+</div>  
+
+## TD learning of action values: Sarsa
+
+给定策略 $\pi$，我们的目标是估计动作价值，可以通过以下 Sarsa 算法估计：
+
+$$q_{t+1}(s_t, a_t) = q_t(s_t, a_t) - \alpha_t(s_t, a_t)[q_t(s_t, a_t) - (r_{t+1} + \gamma q_t(s_{t+1}, a_{t+1}))]$$
+
+因为每一轮迭代需要 $(s_t, a_t, r_{t+1}, s_{t+1}, a_{t+1})$，所以称这个算法为 Sarsa 。Sarse 算法实际上就是求解给定策略的贝尔曼方程的随机近似算法
+
+$$q_{\pi}(s, a) = \mathbb{E}[R + \gamma q_{\pi}(S^\prime, A^\prime) \vert s, a], \text{  for all } (s, a)$$
+
+由于 Sarsa 估计了给定策略的动作价值，可以与 policy improve 结合以得到最优策略。
+
+<div  align="center">    
+	<img src="https://s2.loli.net/2025/06/23/EFJBVIbDCZ34OWs.png"  width="100%" />
+</div>  
+
+Sarsa 还有名为 Expected Sarsa 的变种，就是将公式改为
+
+$$q_{t+1}(s_t, a_t) = q_t(s_t, a_t) - \alpha_t(s_t, a_t)[q_t(s_t, a_t) - (r_{t+1} + \gamma \mathbb{E}[q_t(s_{t+1}, A)] )]$$
+
+这样可以减少估计的方差，因为将随机变量由 $(s_t, a_t, r_{t+1}, s_{t+1}, a_{t+1})$ 缩减到了 $(s_t, a_t, r_{t+1}, s_{t+1})$
+
+## TD learning of action values: n-step Sarsa
+
+<div  align="center">    
+	<img src="https://s2.loli.net/2025/06/23/aMSYAVGLKEu7I3O.png"  width="65%" />
+</div>  
+
+如图所示，Sarsa 和 MC learning 可以看作是 n-step Sarsa 的两个极端情况
+
+## TD learning of optimal action values: Q-learning
+
+Q-learning 算法如下
+
+$$q_{t+1}(s_t, a_t) = q_t(s_t, a_t) - \alpha_t(s_t, a_t)[q_t(s_t, a_t) - (r_{t+1} + \gamma \max_{a \in \mathcal{A}(s_{t+1})}q_t(s_{t+1}, a) )]$$
+
+Q-learning 求解的是贝尔曼最优方程，可以估计最优动作价值，直接得到最优策略
+
+## Off-policy vs on-policy
+
+behavior policy 是指用于生成样本的策略，target policy 是指经常更新以趋近于最优策略的策略。当 behavior policy 和 target policy 是同一个策略时，称学习过程是 on-policy 的，如果是不同的策略，则称为 off-policy。
+和 on-policy/off-policy 需要区分的概念是 online/offline，online learning 是指智能体在与环境交互时更新价值与策略，offline learning 是指智能体通过预先收集好的数据来更新价值与策略，并没有与环境发生交互。
+Sarsa 是 on-policy 的，而 Q-learning 是 off-policy 的。这是因为 Sarsa 是在求解策略的贝尔曼方程，Q-learning 直接求解贝尔曼最优方程，可以直接得到最优策略而不需要频繁更新策略。
+off-policy 的算法既可以以 on-policy 的形式实现也可以用 off-policy 的形式实现。
+
+<div  align="center">    
+	<img src="https://s2.loli.net/2025/06/23/TuADnFGRMEkSt8w.png"  width="100%" />
+</div>  
+
+<div  align="center">    
+	<img src="https://s2.loli.net/2025/06/23/izcOn2Yut5XoAkP.png"  width="100%" />
+</div>  
+
+## Summary
+
+几类算法的区别在于 TD target 的选择
+
+<div  align="center">    
+	<img src="https://s2.loli.net/2025/06/23/1XdZ7V3FxTefKhH.png"  width="75%" />
+</div>  
+
+Q: While Theorems 7.1 and 7.2 require that the learning rate $\alpha_t$ converges to zero gradually, why is it often set to be a small constant in practice?
+
+A: **The fundamental reason is that the policy to be evaluated keeps changing (or called nonstationary).** In particular, a TD learning algorithm like Sarsa aims to estimate the action values of a given policy. If the policy is fixed, using a decaying learning rate is acceptable. However, in the optimal policy learning process, the policy that  Sarsa aims to evaluate keeps changing after every iteration. We need a constant learning rate in this case; otherwise, a decaying learning rate may be too small to  effectively evaluate policies. Although a drawback of constant learning rates is that the value estimate may fluctuate eventually, the fluctuation is neglectable as long as  the constant learning rate is sufficiently small.
